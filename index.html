@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Kabda AI Workbench: share your live link and estimate VRAM fit and electricity costs.">
+  <title>Kabda AI Workbench</title>
+  <link rel="manifest" href="./manifest.json">
+  <style>
+    :root{color-scheme:dark;--bg:#0f172a;--card:#1e293b;--accent:#38bdf8;--text:#f1f5f9;--muted:#94a3b8}
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);padding:16px;max-width:760px;margin-inline:auto}
+    h1{font-size:clamp(1.7rem,5vw,2.2rem)}
+    .card{background:var(--card);border-radius:16px;padding:16px;margin:12px 0}
+    button{background:var(--accent);color:#082f49;border:0;padding:12px;border-radius:10px;font-weight:700;width:100%;cursor:pointer}
+    button:focus-visible,.tab:focus-visible,input:focus-visible{outline:3px solid white;outline-offset:2px}
+    input{width:100%;padding:10px;border-radius:10px;border:1px solid #334155;background:var(--bg);color:var(--text);margin:6px 0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{padding:8px 14px;border:0;border-radius:999px;background:var(--card);color:var(--text);cursor:pointer;width:auto}
+    .tab.active{background:var(--accent);color:#082f49}
+    .small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+    pre{white-space:pre-wrap;line-height:1.55}
+    code{overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <h1>Kabda AI Workbench</h1>
+  <p class="small" id="bio-link"></p>
+
+  <nav class="tabs" aria-label="Workbench tabs">
+    <button class="tab active" type="button" data-tab="1" aria-selected="true">Tab 1 • Share</button>
+    <button class="tab" type="button" data-tab="3" aria-selected="false">Tab 3 • ROI</button>
+    <button class="tab" type="button" data-tab="5" aria-selected="false">Tab 5 • Bio</button>
+  </nav>
+
+  <main>
+    <section id="tab1" class="card" aria-labelledby="share-heading">
+      <h2 id="share-heading">1-Tap Copy &amp; Share Live Link</h2>
+      <button type="button" id="share-button">1-Tap Copy &amp; Share Live Link</button>
+      <p id="share-status" class="small" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="tab3" class="card" aria-labelledby="roi-heading" hidden>
+      <h2 id="roi-heading">VRAM &amp; KPLC KES ROI</h2>
+      <label for="vram">VRAM (GB)</label><input id="vram" type="number" min="0" step="any" value="24">
+      <label for="params">Model size (billions of parameters)</label><input id="params" type="number" min="0" step="any" value="7">
+      <label for="kplc">KPLC price (KES/kWh)</label><input id="kplc" type="number" min="0" step="any" value="35">
+      <label for="hours">Hours per day</label><input id="hours" type="number" min="0" step="any" value="8">
+      <label for="watts">Power draw (watts)</label><input id="watts" type="number" min="0" step="any" value="350">
+      <button type="button" id="calc-button">Calculate ROI</button>
+      <pre id="roi-out" aria-live="polite"></pre>
+    </section>
+
+    <section id="tab5" class="card" aria-labelledby="bio-heading" hidden>
+      <h2 id="bio-heading">Dolinks Bio</h2>
+      <code id="bio-link-2"></code>
+      <button type="button" id="bio-share-button" style="margin-top:10px">Share Bio + Link</button>
+    </section>
+  </main>
+
+  <script>
+    function showTab(n){
+      document.querySelectorAll('main section[id^="tab"]').forEach(section=>{section.hidden=section.id!=='tab'+n});
+      document.querySelectorAll('.tab').forEach(tab=>{
+        const active=tab.dataset.tab===String(n);
+        tab.classList.toggle('active',active);
+        tab.setAttribute('aria-selected',String(active));
+      });
+    }
+    function liveLink(){return window.location.origin+window.location.pathname}
+    async function shareLiveLink(){
+      const link=liveLink();
+      const status=document.getElementById('share-status');
+      if(navigator.share){
+        try{await navigator.share({title:'Kabda AI Workbench',text:'Test my live workbench:',url:link});status.textContent='Link shared.';return}
+        catch(error){if(error.name==='AbortError')return}
+      }
+      try{await navigator.clipboard.writeText(link);status.textContent='Copied: '+link}
+      catch(error){status.textContent='Copy this link: '+link}
+    }
+    function calcROI(){
+      const v=Number(document.getElementById('vram').value)||0;
+      const p=Number(document.getElementById('params').value)||0;
+      const k=Number(document.getElementById('kplc').value)||0;
+      const h=Number(document.getElementById('hours').value)||0;
+      const w=Number(document.getElementById('watts').value)||0;
+      const need=p*2;
+      const fits=v>=need?'YES ✅ Fits':`NO ❌ Need ~${need}GB`;
+      const kwh=(w/1000)*h,day=kwh*k,month=day*30;
+      document.getElementById('roi-out').textContent=`VRAM: ${fits}\nNeed ~${need}GB for ${p}B\n\nKPLC: ${w}W x ${h}h = ${kwh.toFixed(2)}kWh\nKES ${day.toFixed(2)}/day | KES ${month.toFixed(2)}/month`;
+    }
+    function updateLinks(){const link=liveLink();document.getElementById('bio-link').textContent=link;document.getElementById('bio-link-2').textContent=link}
+    document.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>showTab(tab.dataset.tab)));
+    document.getElementById('share-button').addEventListener('click',shareLiveLink);
+    document.getElementById('bio-share-button').addEventListener('click',shareLiveLink);
+    document.getElementById('calc-button').addEventListener('click',calcROI);
+    updateLinks();calcROI();
+    if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(error=>console.error('Service worker registration failed:',error)))}
+  </script>
+</body>
+</html>
