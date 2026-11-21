@@ -52,22 +52,19 @@ with tab1:
     with c3:
         st.download_button("Download deployment_logs.json", data=f'{{"app":"Kabda AI Workbench","tabs":6,"url":"{live_url}"}}', file_name="deployment_logs.json", mime="application/json", use_container_width=True)
     
-    # --- PWA EMBED: This is the clean snippet to paste ---
-    # The PWA is embedded below so your Streamlit app *is* the workbench on mobile
+    # The PWA is embedded below so your Streamlit app is also a workbench demo.
     with st.expander("📱 Show Embedded PWA (offline capable)", expanded=True):
-        # Load the clean PWA HTML we built
         try:
-            with open("kabda-netlify/index.html", "r", encoding="utf-8") as f:
+            with open("index.html", "r", encoding="utf-8") as f:
                 pwa_html = f.read()
-            # components.html needs height
             components.html(pwa_html, height=900, scrolling=True)
-        except FileNotFoundError:
-            st.info("Place your Kabda-Final-PWA.html as kabda-netlify/index.html to embed the full offline PWA here. For now showing placeholder.")
+        except (FileNotFoundError, OSError) as exc:
+            st.info(f"Could not load the root index.html ({exc}). Showing a link card instead.")
             components.html(f"""
             <div style="background:#0f172a;color:#e2e8f0;padding:20px;border-radius:16px;font-family:sans-serif">
                 <h3>KABDA AI WORKBENCH</h3>
-                <p>Live link: {live_url}</p>
-                <button onclick="navigator.clipboard.writeText('{live_url}'); this.innerText='Copied ✓'" 
+                <p>Live link: <a href="{live_url}" target="_blank" rel="noopener noreferrer">{live_url}</a></p>
+                <button onclick="navigator.clipboard.writeText('{live_url}'); this.innerText='Copied ✓'"
                 style="padding:12px 18px;border-radius:12px;background:#22c55e;color:#052e16;font-weight:700;border:none;cursor:pointer">
                 1-Tap Copy & Share Live Link</button>
             </div>
@@ -84,7 +81,6 @@ with tab2:
         df = pd.read_csv(uploaded)
         st.success(f"Rows: {len(df)} | Columns: {len(df.columns)} | Missing cells: {df.isna().sum().sum()}")
         
-        # Numeric summary
         numeric = df.select_dtypes(include=['number'])
         if not numeric.empty:
             st.markdown("#### Numeric Summary")
@@ -95,9 +91,7 @@ with tab2:
         st.markdown("#### Preview (first 15 rows)")
         st.dataframe(df.head(15), use_container_width=True)
         
-        # Cleaned export
         df_cleaned = df.fillna(0)
-        # Trim whitespace for object cols
         for col in df_cleaned.select_dtypes(include=['object']).columns:
             df_cleaned[col] = df_cleaned[col].astype(str).str.strip()
         
@@ -124,7 +118,6 @@ with tab3:
         batch = st.number_input("Concurrent Batch Size", value=1, min_value=1, max_value=32)
         overhead_pct = st.slider("CUDA & Activation Overhead %", 0, 50, 20)
         
-        # Calculation — same formula as JS: Params × Bytes_per_param + KV cache + overhead
         weights_gb = params_b * bytes_per_param
         kv_cache_gb = (params_b * (context / 1024) * 0.042) * batch
         subtotal = weights_gb + kv_cache_gb
@@ -134,7 +127,6 @@ with tab3:
         st.metric("TOTAL VRAM REQUIRED", f"{total_gb:.1f} GB")
         st.progress(min(100, int(total_gb/80*100)) if total_gb<=80 else 100)
         
-        # GPU rec
         if total_gb > 48:
             rec = "Fits: 1x A100 / H100 (80 GB) or Multi-GPU"
         elif total_gb > 24:
